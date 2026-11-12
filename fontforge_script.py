@@ -9,6 +9,7 @@ import shutil
 import sys
 import uuid
 from decimal import ROUND_HALF_UP, Decimal
+from pathlib import Path
 
 import fontforge
 import psMat
@@ -68,7 +69,6 @@ Copyright 2022 Yuko Otawara
 """  # noqa: E501
 
 options = {}
-nerd_font = None
 
 
 def main():
@@ -734,6 +734,10 @@ def transform_half_width(jp_font, eng_font):
     x_scale = 550 / before_width_eng
     for glyph in eng_font.glyphs():
         if glyph.width > 0:
+            if is_nerd_glyph(glyph.unicode):
+                glyph.transform(psMat.scale(after_width_eng / before_width_eng, 0.99))
+                glyph.width = after_width_eng
+                continue
             if 0x2500 <= glyph.unicode <= 0x259F:
                 glyph.transform(psMat.scale(after_width_eng / before_width_eng, 1))
                 glyph.width = after_width_eng
@@ -770,6 +774,7 @@ def down_scale_redundant_size_glyph(eng_font):
         if (
             glyph.width > 0
             and bounding_x_min < 0
+            and not is_nerd_glyph(glyph.unicode)
             and not (
                 0x0020 <= glyph.unicode <= 0x02AF
             )  # latin 系のグリフ 0x0020 - 0x0192 は無視
@@ -853,56 +858,93 @@ def merge_hack(eng_font, eng_style):
 
 
 def add_nerd_font_glyphs(jp_font, eng_font):
-    """Nerd Fontのグリフを追加する"""
-    global nerd_font
-    # Nerd Fontのグリフを追加する
-    if nerd_font is None:
-        nerd_font = fontforge.open(
-            f"{SOURCE_FONTS_DIR}/nerd-fonts/SymbolsNerdFont-Regular.ttf"
-        )
-        nerd_font.em = EM_ASCENT + EM_DESCENT
-        glyph_names = set()
-        for nerd_glyph in nerd_font.glyphs():
-            nerd_glyph.glyphname = f"{nerd_glyph.glyphname}-nf"
-            # postテーブルでのグリフ名重複対策
-            # fonttools merge で合成した後、MacOSで `'post'テーブルの使用性` エラーが発生することへの対処
-            if nerd_glyph.glyphname in glyph_names:
-                nerd_glyph.glyphname = f"{nerd_glyph.glyphname}-{nerd_glyph.encoding}"
-            glyph_names.add(nerd_glyph.glyphname)
-            # 幅を調整する
-            half_width = eng_font[0x0030].width
-            # Powerline Symbols の調整
-            if 0xE0B0 <= nerd_glyph.unicode <= 0xE0D4:
-                # 位置と幅合わせ
-                if nerd_glyph.width < half_width:
-                    nerd_glyph.transform(
-                        psMat.translate((half_width - nerd_glyph.width) / 2, 0)
-                    )
-                elif nerd_glyph.width > half_width:
-                    nerd_glyph.transform(psMat.scale(half_width / nerd_glyph.width, 1))
-                # グリフの高さ・位置を調整する
-                nerd_glyph.transform(psMat.scale(1, 1.21))
-                nerd_glyph.transform(psMat.translate(0, -24))
-            elif nerd_glyph.width < 600:
-                # 幅が狭いグリフは中央寄せとみなして調整する
-                nerd_glyph.transform(
-                    psMat.translate((half_width - nerd_glyph.width) / 2, 0)
-                )
-            # 幅を設定
-            nerd_glyph.width = half_width
-    # 日本語フォントにマージするため、既に存在する場合は削除する
+    """Monaspace NFのグリフを保ち、未収録の記号だけを補完する。"""
+    half_width = eng_font[0x0030].width
+    for codepoint in range(0xE0B0, 0xE0D8):
+        if codepoint in eng_font and eng_font[codepoint].isWorthOutputting():
+            glyph = eng_font[codepoint]
+            fit_powerline_height(glyph)
+            glyph.width = half_width
+
+    nerd_font = fontforge.open(
+        f"{SOURCE_FONTS_DIR}/nerd-fonts/SymbolsNerdFont-Regular.ttf"
+    )
+    nerd_font.em = EM_ASCENT + EM_DESCENT
+    nerd_font.selection.all()
+    nerd_font.unlinkReferences()
+    remove_lookups(nerd_font)
+    glyph_names = set()
     for nerd_glyph in nerd_font.glyphs():
-        if nerd_glyph.unicode != -1:
-            # 既に存在する場合は削除する
-            try:
-                jp_font[nerd_glyph.unicode].clear()
-            except Exception:
-                pass
-            try:
-                eng_font[nerd_glyph.unicode].clear()
-            except Exception:
-                pass
-    jp_font.mergeFonts(nerd_font)
+        codepoint = nerd_glyph.unicode
+        if codepoint < 0 or (
+            codepoint in eng_font and eng_font[codepoint].isWorthOutputting()
+        ):
+            nerd_glyph.clear()
+            continue
+        if not nerd_glyph.isWorthOutputting():
+            continue
+        nerd_glyph.glyphname = f"{nerd_glyph.glyphname}-nf"
+        if nerd_glyph.glyphname in glyph_names:
+            nerd_glyph.glyphname = f"{nerd_glyph.glyphname}-{nerd_glyph.encoding}"
+        glyph_names.add(nerd_glyph.glyphname)
+        fit_nerd_glyph(nerd_glyph, half_width)
+        nerd_glyph.width = half_width
+        if codepoint in jp_font:
+            jp_font[codepoint].clear()
+    temporary = Path(BUILD_FONTS_DIR) / f"tmp_nerd_{uuid.uuid4()}.ttf"
+    try:
+        nerd_font.generate(str(temporary))
+        nerd_font.close()
+        jp_font.mergeFonts(str(temporary))
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def is_nerd_glyph(codepoint: int) -> bool:
+    return (
+        0xE000 <= codepoint <= 0xF8FF
+        or 0xF0000 <= codepoint <= 0xFFFFD
+        or 0x100000 <= codepoint <= 0x10FFFD
+        or codepoint in (0x23FB, 0x23FC, 0x23FD, 0x2665)
+    )
+
+
+
+def fit_powerline_height(glyph) -> None:
+    """公式の横配置を保ち、区切りの上下端を行高に合わせる。"""
+    _, y_min, _, y_max = glyph.boundingBox()
+    if y_max == y_min:
+        return
+    scale = (OS2_ASCENT + OS2_DESCENT) / (y_max - y_min)
+    glyph.transform(psMat.scale(1, scale))
+    glyph.transform(psMat.translate(0, -OS2_DESCENT - y_min * scale))
+
+
+
+def fit_nerd_glyph(glyph, half_width: int) -> None:
+    """アイコンの輪郭をセル内に収め、Powerlineの区切りはセル全体に合わせる。"""
+    x_min, y_min, x_max, y_max = glyph.boundingBox()
+    ink_width = x_max - x_min
+    ink_height = y_max - y_min
+    if ink_width == 0 or ink_height == 0:
+        return
+
+    if 0xE0B0 <= glyph.unicode <= 0xE0D7:
+        glyph.transform(psMat.translate(-x_min, -y_min))
+        glyph.transform(
+            psMat.scale(half_width / ink_width, (OS2_ASCENT + OS2_DESCENT) / ink_height)
+        )
+        glyph.transform(psMat.translate(0, -OS2_DESCENT))
+    else:
+        scale = min(1, half_width / ink_width, (OS2_ASCENT + OS2_DESCENT) / ink_height)
+        glyph.transform(psMat.scale(scale))
+        y_shift = (OS2_ASCENT - OS2_DESCENT - (y_min + y_max) * scale) / 2
+        glyph.transform(
+            psMat.translate(
+                (half_width - ink_width * scale) / 2 - x_min * scale, y_shift
+            )
+        )
+
 
 
 def edit_meta_data(
