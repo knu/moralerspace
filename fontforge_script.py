@@ -734,6 +734,10 @@ def transform_half_width(jp_font, eng_font):
     x_scale = 550 / before_width_eng
     for glyph in eng_font.glyphs():
         if glyph.width > 0:
+            if 0x2500 <= glyph.unicode <= 0x259F:
+                glyph.transform(psMat.scale(after_width_eng / before_width_eng, 1))
+                glyph.width = after_width_eng
+                continue
             # リガチャ考慮
             after_width_eng_multiply = after_width_eng * round(glyph.width / 600)
             # 縮小
@@ -812,7 +816,7 @@ def merge_hack(eng_font, eng_style):
     hack_font.em = EM_ASCENT + EM_DESCENT
     # 既に英語フォント側に存在する場合はhackグリフは削除する
     for glyph in eng_font.glyphs():
-        if glyph.unicode != -1:
+        if glyph.unicode != -1 and not 0x2500 <= glyph.unicode <= 0x259F:
             try:
                 for g in hack_font.selection.select(
                     ("unicode", None), glyph.unicode
@@ -824,7 +828,10 @@ def merge_hack(eng_font, eng_style):
     half_width = 620
     for glyph in hack_font.glyphs():
         if glyph.width > 0:
-            glyph.transform(psMat.translate((half_width - glyph.width) / 2, 0))
+            if 0x2500 <= glyph.unicode <= 0x259F:
+                glyph.transform(psMat.scale(half_width / glyph.width, 1))
+            else:
+                glyph.transform(psMat.translate((half_width - glyph.width) / 2, 0))
             glyph.width = half_width
     # Hack フォントをオブジェクトとして扱いたくないので、一旦ファイル保存して直接マージする
     font_path = f"{BUILD_FONTS_DIR}/tmp_hack_{uuid.uuid4()}.ttf"
