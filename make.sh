@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 
-# ini から VERSION を取得
-version=$(grep "VERSION" build.ini | cut -d "=" -f 2 | xargs)
+set -euo pipefail
 
 # スクリプトファイルがある場所に移動する
 cd "$(dirname "$0")"
+
+# ini から VERSION を取得
+version=$(python3 -c 'import configparser; config = configparser.ConfigParser(); config.read("build.ini"); print(config["DEFAULT"]["VERSION"])')
 
 # 各ファイルを置くフォルダを作成
 mkdir -p "./release_files/"
@@ -14,16 +16,12 @@ rm -rf ./build
 
 # 並列処理
 option=(
-  "--nerd-font"
-  "--half-width --nerd-font"
-  " "
+  ""
   "--half-width"
   "--jpdoc"
   "--half-width --jpdoc"
 )
 output_folder=(
-  "NF-"
-  "HWNF-"
   "-"
   "HW-"
   "JPDOC-"
@@ -32,17 +30,20 @@ output_folder=(
 
 # 配列を並列処理しやすい形式に変換
 function run_build() {
-  local option="$1"
+  local -a build_options=()
+  if [[ -n "$1" ]]; then
+    read -r -a build_options <<<"$1"
+  fi
   local output_prefix="$2"
-  echo "fontforge script start. option: \"$option\""
-  python ./fontforge_script.py --do-not-delete-build-dir $option &&
+  echo "fontforge script start. option: \"$1\""
+  python3 ./fontforge_script.py --do-not-delete-build-dir "${build_options[@]}" &&
     echo "fonttools script start. option: \"$output_prefix\"" &&
-    python fonttools_script.py "$output_prefix"
+    python3 fonttools_script.py "$output_prefix"
 }
 export -f run_build
 
 # parallelコマンドで並列実行
-parallel -j -1 --progress --link run_build ::: "${option[@]}" ::: "${output_folder[@]}"
+parallel -j -1 --halt soon,fail=1 --link run_build ::: "${option[@]}" ::: "${output_folder[@]}"
 
 # ファイル移動
 declare -A move_file_src_dest=(
@@ -69,18 +70,6 @@ declare -A move_file_src_dest=(
   ["MoralerspaceXenonHWJPDOC-*.ttf"]="MoralerspaceHWJPDOC_$version"
   ["MoralerspaceRadonHWJPDOC-*.ttf"]="MoralerspaceHWJPDOC_$version"
   ["MoralerspaceKryptonHWJPDOC-*.ttf"]="MoralerspaceHWJPDOC_$version"
-
-  ["MoralerspaceNeonNF-*.ttf"]="MoralerspaceNF_$version"
-  ["MoralerspaceArgonNF-*.ttf"]="MoralerspaceNF_$version"
-  ["MoralerspaceXenonNF-*.ttf"]="MoralerspaceNF_$version"
-  ["MoralerspaceRadonNF-*.ttf"]="MoralerspaceNF_$version"
-  ["MoralerspaceKryptonNF-*.ttf"]="MoralerspaceNF_$version"
-
-  ["MoralerspaceNeonHWNF-*.ttf"]="MoralerspaceHWNF_$version"
-  ["MoralerspaceArgonHWNF-*.ttf"]="MoralerspaceHWNF_$version"
-  ["MoralerspaceXenonHWNF-*.ttf"]="MoralerspaceHWNF_$version"
-  ["MoralerspaceRadonHWNF-*.ttf"]="MoralerspaceHWNF_$version"
-  ["MoralerspaceKryptonHWNF-*.ttf"]="MoralerspaceHWNF_$version"
 )
 
 timestamp=$(date +%Y%m%d%H%M%S)
