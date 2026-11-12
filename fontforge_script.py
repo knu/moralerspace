@@ -521,13 +521,15 @@ def adjust_some_glyph(jp_font, eng_font):
     """いくつかのグリフ形状に調整を加える"""
     # アンダースコアが隣接すると繋がっているように見えるため短くする
     # 位置も少し上にずらす
-    underscore = eng_font[0x005F]
-    underscore_before_width = underscore.width
-    underscore.transform(psMat.scale(0.91, 1))
-    underscore.transform(
-        psMat.translate((underscore_before_width - underscore.width) / 2, 60)
-    )
-    underscore.width = underscore_before_width
+    underscore_name = eng_font[0x005F].glyphname
+    for glyph in eng_font.glyphs():
+        if glyph.glyphname == underscore_name or glyph.glyphname.startswith(
+            f"{underscore_name}."
+        ):
+            before_width = glyph.width
+            glyph.transform(psMat.scale(0.91, 1))
+            glyph.transform(psMat.translate((before_width - glyph.width) / 2, 60))
+            glyph.width = before_width
     # 全角括弧の開きを広くする
     full_width = jp_font[0x3042].width
     for glyph_name in [0xFF08, 0xFF3B, 0xFF5B]:
