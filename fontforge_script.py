@@ -9,10 +9,16 @@ import shutil
 import sys
 import uuid
 from decimal import ROUND_HALF_UP, Decimal
+from functools import lru_cache
+from io import BytesIO
 from pathlib import Path
 
 import fontforge
 import psMat
+from fontTools.fontBuilder import FontBuilder
+from fontTools.pens.cu2quPen import Cu2QuPen
+from fontTools.pens.ttGlyphPen import TTGlyphPen
+from fontTools.ttLib import TTFont
 
 # iniファイルを読み込む
 settings = configparser.ConfigParser()
@@ -26,6 +32,7 @@ SUFFIX_XENON = settings.get("DEFAULT", "SUFFIX_XENON")
 SUFFIX_RADON = settings.get("DEFAULT", "SUFFIX_RADON")
 SUFFIX_KRYPTON = settings.get("DEFAULT", "SUFFIX_KRYPTON")
 JP_FONT = settings.get("DEFAULT", "JP_FONT")
+JP_FONT_XENON = settings.get("DEFAULT", "JP_FONT_XENON")
 JP_FONT_RADON = settings.get("DEFAULT", "JP_FONT_RADON")
 JP_FONT_KRYPTON = settings.get("DEFAULT", "JP_FONT_KRYPTON")
 ENG_FONT = settings.get("DEFAULT", "ENG_FONT")
@@ -51,6 +58,9 @@ Copyright (c) 2023, GitHub https://github.com/githubnext/monaspace
 
 [IBM Plex]
 Copyright © 2017 IBM Corp. https://github.com/IBM/plex
+
+[Source Han Serif]
+Copyright 2017-2022 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.
 
 [Kiwi Maru]
 Copyright 2020 The Kiwi Maru Project Authors https://github.com/Kiwi-KawagotoKajiru/Kiwi-Maru
@@ -292,9 +302,7 @@ def generate_krypton():
 
 
 def usage():
-    print(
-        f"Usage: {sys.argv[0]} " "[--invisible-zenkaku-space] [--half-width] [--jpdoc]"
-    )
+    print(f"Usage: {sys.argv[0]} [--invisible-zenkaku-space] [--half-width] [--jpdoc]")
 
 
 def get_options():
@@ -420,7 +428,13 @@ def generate_font(jp_style, eng_style, merged_style, suffix, italic=False):
 def open_fonts(jp_style: str, eng_style: str, suffix: str = ""):
     """フォントを開く"""
     suffix_eng_style = f"{suffix}-{eng_style}"
-    if suffix == SUFFIX_RADON:
+    if suffix == SUFFIX_XENON:
+        style = "Regular" if jp_style == "Text" else jp_style
+        jp_font = open_cff_font(f"{SOURCE_FONTS_DIR}/{JP_FONT_XENON}{style}.otf")
+        eng_font = fontforge.open(
+            f"{SOURCE_FONTS_DIR}/{ENG_FONT}{suffix_eng_style}.otf"
+        )
+    elif suffix == SUFFIX_RADON:
         jp_font = fontforge.open(
             f"{SOURCE_FONTS_DIR}/{JP_FONT_RADON}{jp_style}_dehint.ttf"
         )
@@ -464,6 +478,55 @@ def open_fonts(jp_style: str, eng_style: str, suffix: str = ""):
     eng_font.unlinkReferences()
 
     return jp_font, eng_font
+
+
+def open_cff_font(font_path: str):
+    """古いFontForgeのCID処理を避け、通常のTrueTypeとして読み込む。"""
+    temporary = Path(BUILD_FONTS_DIR) / f"tmp_jp_{uuid.uuid4()}.ttf"
+    try:
+        temporary.write_bytes(quadratic_font_data(font_path))
+        return fontforge.open(str(temporary))
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+@lru_cache(maxsize=2)
+def quadratic_font_data(font_path: str) -> bytes:
+    """cmapとメトリクスを保ち、輪郭を誤差1フォント単位以内で二次曲線へ変換する。"""
+    with TTFont(font_path) as source:
+        glyph_set = source.getGlyphSet()
+        glyphs = {}
+        for name in source.getGlyphOrder():
+            pen = TTGlyphPen(glyph_set)
+            glyph_set[name].draw(Cu2QuPen(pen, 1, reverse_direction=True))
+            glyphs[name] = pen.glyph()
+        cmap = dict(source.getBestCmap())
+        metrics = dict(source["hmtx"].metrics)
+        glyph_order = source.getGlyphOrder()
+        mapped_names = set()
+        # Unicode別名を独立させ、FontForgeでの実体化時に元グリフが消えるのを防ぐ。
+        for codepoint, name in cmap.items():
+            if name in mapped_names:
+                alias = f"{name}.u{codepoint:04X}"
+                glyphs[alias] = glyphs[name]
+                metrics[alias] = metrics[name]
+                glyph_order.append(alias)
+                cmap[codepoint] = alias
+            mapped_names.add(name)
+        builder = FontBuilder(source["head"].unitsPerEm, isTTF=True)
+        builder.setupGlyphOrder(glyph_order)
+        builder.setupCharacterMap(cmap)
+        builder.font["cmap"].tables.extend(
+            table for table in source["cmap"].tables if table.format == 14
+        )
+        builder.setupGlyf(glyphs)
+        builder.setupHorizontalMetrics(metrics)
+        for tag in ("hhea", "name", "OS/2"):
+            builder.font[tag] = source[tag]
+        builder.setupPost()
+        output = BytesIO()
+        builder.save(output)
+        return output.getvalue()
 
 
 def altuni_to_entity(jp_font):
@@ -912,7 +975,6 @@ def is_nerd_glyph(codepoint: int) -> bool:
     )
 
 
-
 def fit_powerline_height(glyph) -> None:
     """公式の横配置を保ち、区切りの上下端を行高に合わせる。"""
     _, y_min, _, y_max = glyph.boundingBox()
@@ -921,7 +983,6 @@ def fit_powerline_height(glyph) -> None:
     scale = (OS2_ASCENT + OS2_DESCENT) / (y_max - y_min)
     glyph.transform(psMat.scale(1, scale))
     glyph.transform(psMat.translate(0, -OS2_DESCENT - y_min * scale))
-
 
 
 def fit_nerd_glyph(glyph, half_width: int) -> None:
@@ -947,7 +1008,6 @@ def fit_nerd_glyph(glyph, half_width: int) -> None:
                 (half_width - ink_width * scale) / 2 - x_min * scale, y_shift
             )
         )
-
 
 
 def edit_meta_data(

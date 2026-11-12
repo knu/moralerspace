@@ -30,6 +30,7 @@ Moralerspace は、欧文フォント [Monaspace](https://github.com/githubnext/
 
 - Texture healing システムを搭載した、GitHub 製 [Monaspace](https://github.com/githubnext/monaspace) 由来の英数字
 - 文字の懐が広く読みやすい IBM 製 [IBM Plex Sans JP](https://github.com/IBM/plex) 由来の日本語文字
+  - Xenon系統には[源ノ明朝JP](https://github.com/adobe-fonts/source-han-serif)を使用
   - Radon 系統には [キウイ丸 (Kiwi-Maru)](https://github.com/Kiwi-KawagotoKajiru/Kiwi-Maru) をベースに、足りないグリフを IBM Plex Sans JP で補完
   - Krypton 系統には [Stick](https://github.com/fontworks-fonts/Stick) をベースに、足りないグリフを IBM Plex Sans JP で補完
 - 罫線素片などの一部半角記号は、 [Hack](https://github.com/source-foundry/Hack) より追加合成
@@ -37,6 +38,8 @@ Moralerspace は、欧文フォント [Monaspace](https://github.com/githubnext/
 - 文字幅比率が 半角3:全角5、ゆとりのある半角英数字
   - 半角1:全角2 幅のバリエーションもあり
 - バグの原因になりがちな全角スペースが可視化される
+
+合成元のバージョンはMonaspace NF v1.400、IBM Plex Sans JP 3.0.0、源ノ明朝JP 2.003、補完用のSymbols Nerd Font 3.4.0です。
 
 ![sample](https://github.com/yuru7/moralerspace/assets/13458509/21d90d22-0178-4c41-a28c-7b15b7b17ecf)
 
@@ -63,6 +66,8 @@ Moralerspace は、欧文フォント [Monaspace](https://github.com/githubnext/
 ```sh
 # 必要パッケージのインストール
 pip install -r requirements.txt
+# FontForge付属Pythonにも同じ依存をインストール
+& "C:\Program Files (x86)\FontForgeBuilds\bin\ffpython.exe" -m pip install -r requirements.txt
 # ビルド
 .\make.ps1
 ```
@@ -72,6 +77,12 @@ pip install -r requirements.txt
 ```sh
 docker build -t font/moralerspace .
 docker run -it --rm -v $PWD:/workspace font/moralerspace:latest
+```
+
+生成フォントの回帰チェックは、fontToolsとHarfBuzz CLI (`hb-shape`) がある環境で実行できます。出力先の `build_<日時>` を指定してください。
+
+```sh
+python3 tests/test_generated_fonts.py release_files/build_YYYYMMDDhhmmss
 ```
 
 ## ライセンス
