@@ -1,6 +1,8 @@
-# Moralerspace
+# Moralerspace Community Edition
 
 Moralerspace は、欧文フォント [Monaspace](https://github.com/githubnext/monaspace) と日本語フォント [IBM Plex Sans JP](https://github.com/IBM/plex) などを合成したプログラミング向けフォントです。
+
+このリポジトリは[yuru7/moralerspace](https://github.com/yuru7/moralerspace)のCommunity Editionです。フォントの表示名は引き続き`Moralerspace`です。v3.0.0での変更は[CHANGELOG.md](CHANGELOG.md)を参照してください。
 
 ```
   ∧＿＿∧
@@ -12,11 +14,34 @@ Moralerspace は、欧文フォント [Monaspace](https://github.com/githubnext/
 
 ## インストール
 
-リリースページよりzipファイルをダウンロードし、展開したttfファイルを各OSごとの方法でインストールしてください。
+### Homebrew
 
-[🆕 **ダウンロードはこちら**](https://github.com/yuru7/moralerspace/releases/latest)
+[knu/knu](https://github.com/knu/homebrew-knu)のcaskからインストールできます。例えば、半角1:全角2幅のHW版は次のとおりです。
 
-※「Assets」内の zip ファイルをダウンロードしてご利用ください。
+```sh
+brew tap knu/knu
+brew install --cask knu/knu/font-moralerspace-ce-hw
+```
+
+以下のcask名に`knu/knu/`を付けて指定してください。各caskには5書体×4スタイルの20本が含まれます。
+
+| 種類 | 無印 | NFM版 |
+| --- | --- | --- |
+| 通常幅 (半角3:全角5) | `font-moralerspace-ce` | `font-moralerspace-ce-nfm` |
+| HW (半角1:全角2) | `font-moralerspace-ce-hw` | `font-moralerspace-ce-hw-nfm` |
+| JPDOC | `font-moralerspace-ce-jpdoc` | `font-moralerspace-ce-jpdoc-nfm` |
+| HW JPDOC | `font-moralerspace-ce-hw-jpdoc` | `font-moralerspace-ce-hw-jpdoc-nfm` |
+
+従来の公式caskから移行する場合は、対応する旧caskを先にアンインストールしてください。無印版は内部のフォント名が同じため、同じ種類の公式版とは共存できません。例えばHW版の移行は次のとおりです。
+
+```sh
+brew uninstall --cask font-moralerspace-hw
+brew install --cask knu/knu/font-moralerspace-ce-hw
+```
+
+### ZIPからインストール
+
+[リリースページ](https://github.com/knu/moralerspace/releases/latest)のAssetsから、使用するバリエーションのZIPをダウンロードしてください。展開したTTFファイルを各OSの方法でインストールします。例えばHW版は`MoralerspaceHW_v3.0.0.zip`、HW NFM版は`MoralerspaceHWNFM_v3.0.0.zip`です。
 
 > 💡 その他、公開中のプログラミングフォント
 >
@@ -41,7 +66,7 @@ Moralerspace は、欧文フォント [Monaspace](https://github.com/githubnext/
 
 合成元のバージョンはMonaspace NF v1.400、IBM Plex Sans JP 3.0.0、源ノ明朝JP 2.003、Symbols Nerd Font 3.4.0です。
 
-![sample](https://github.com/yuru7/moralerspace/assets/13458509/21d90d22-0178-4c41-a28c-7b15b7b17ecf)
+![v3.0.0のNeon、Argon、Xenon、Radon、Kryptonの欧文・日本語サンプル](https://github.com/user-attachments/assets/2764e589-7de3-4e90-b0d0-d7dd38467d66)
 
 ## バリエーション
 
@@ -61,6 +86,10 @@ Moralerspace は、欧文フォント [Monaspace](https://github.com/githubnext/
 
 Powerlineの区切り・半円は両版で共通のセル用配置です。NFMの有無で欧文・日本語・罫線の輪郭や字幅は変わりません。
 
+下図はArgonの通常アイコンの比較です。青い枠が1文字分、右の灰色の枠が隣のセルです。どちらも送り幅は1セルですが、無印の輪郭は隣のセルにはみ出す場合があります。
+
+![Argonの無印とNFM版のNerd Fontアイコンを1セルの枠で比較](https://github.com/user-attachments/assets/b23c41ab-a75f-4bb5-87c7-64e2daaf6b8d)
+
 ## ビルド
 
 ビルドに使用するツール、ランタイム
@@ -68,9 +97,11 @@ Powerlineの区切り・半円は両版で共通のセル用配置です。NFM�
 - fontforge: `20230101` \[[Windows](https://fontforge.org/en-US/downloads/windows/)\] \[[Linux](https://fontforge.org/en-US/downloads/gnulinux/)\]
 - Python: `>=3.8`
 
-### Windows (PowerShell)
+Dockerのビルド環境はUbuntu 26.04、FontForge 20230101、Python 3.14です。
 
-```sh
+### Windows (PowerShell 7以降)
+
+```powershell
 # 必要パッケージのインストール
 pip install -r requirements.txt
 # FontForge付属Pythonにも同じ依存をインストール
@@ -83,7 +114,7 @@ pip install -r requirements.txt
 
 ```sh
 docker build -t font/moralerspace .
-docker run -it --rm -v $PWD:/workspace font/moralerspace:latest
+docker run --rm -v "$PWD:/workspace" font/moralerspace:latest
 ```
 
 ビルドスクリプトは無印80本とNFM版80本を生成します。FontForgeスクリプト単体でNFM版を生成する場合は`--nerd-font-mono`を指定してください。
@@ -93,6 +124,20 @@ docker run -it --rm -v $PWD:/workspace font/moralerspace:latest
 ```sh
 python3 tests/test_generated_fonts.py release_files/build_YYYYMMDDhhmmss
 ```
+
+### README画像の再生成
+
+画像は[scripts/generate_readme_images.py](scripts/generate_readme_images.py)で生成します。Python 3.11以上と、RAQMに対応したPillowが必要です。仮想環境に画像生成用の依存パッケージを入れ、ビルド済みフォントの出力先を指定してください。リリースの通常版とNFM版のZIPを、同じディレクトリ配下に展開したものも使用できます。
+
+```sh
+python3 -m venv .venv-images
+.venv-images/bin/python3 -m pip install -r requirements-images.txt
+.venv-images/bin/python3 scripts/generate_readme_images.py release_files/build_YYYYMMDDhhmmss
+```
+
+フォントをOSへインストールする必要はありません。スクリプトは`build.ini`のバージョンと入力フォントのバージョンを照合し、`assets/sample.png`と`assets/nerd-font-width.png`を更新します。異なるバージョンや同名フォントの重複がある場合は停止します。
+
+生成したPNGはGitに含めません。[画像保管用issue](https://github.com/knu/moralerspace/issues/1)へ添付し、取得した画像URLにREADMEの参照先を更新してください。
 
 ## リリース
 
