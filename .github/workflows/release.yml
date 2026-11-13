@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2.22.4
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Prepare release tooling
+        run: |
+          python3 -m venv "$RUNNER_TEMP/release-venv"
+          "$RUNNER_TEMP/release-venv/bin/pip" install -r requirements-ci.txt
+          "$RUNNER_TEMP/release-venv/bin/python3" -m unittest discover -s tests -p test_prepare_release.py
+      - name: Validate version and release notes
+        run: |
+          "$RUNNER_TEMP/release-venv/bin/python3" scripts/prepare_release.py "$GITHUB_REF_NAME" "$RUNNER_TEMP/release"
+      - name: Build fonts
+        run: |
+          docker build -t moralerspace-release .
+          docker run --rm -v "$PWD:/workspace" moralerspace-release
+      - name: Check fonts and create ZIPs
+        run: |
+          builds=(release_files/build_*)
+          test "${#builds[@]}" -eq 1
+          docker run --rm -v "$PWD:/workspace" moralerspace-release python3 tests/test_generated_fonts.py "${builds[0]}"
+          "$RUNNER_TEMP/release-venv/bin/python3" scripts/prepare_release.py "$GITHUB_REF_NAME" "$RUNNER_TEMP/release" --build "${builds[0]}"
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: release
+          path: ${{ runner.temp }}/release/*
+          if-no-files-found: error
+          compression-level: 0
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    environment:
+      name: github-releases
+      url: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2.22.4
+        with:
+          egress-policy: audit
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: release
+          path: ${{ runner.temp }}/release
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          assets=("$RUNNER_TEMP"/release/*.zip)
+          test "${#assets[@]}" -eq 8
+          prerelease=()
+          if [[ "$TAG" == *-* ]]; then prerelease=(--prerelease); fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${assets[@]}" --clobber
+            gh release edit "$TAG" --title "$TAG" --notes-file "$RUNNER_TEMP/release/release-notes.md" "${prerelease[@]}" --draft=false
+          else
+            gh release create "$TAG" "${assets[@]}" --verify-tag --title "$TAG" --notes-file "$RUNNER_TEMP/release/release-notes.md" "${prerelease[@]}"
+          fi

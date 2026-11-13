@@ -94,6 +94,12 @@ docker run -it --rm -v $PWD:/workspace font/moralerspace:latest
 python3 tests/test_generated_fonts.py release_files/build_YYYYMMDDhhmmss
 ```
 
+## リリース
+
+`build.ini`の`VERSION`を更新し、[CHANGELOG.md](CHANGELOG.md)に対応するバージョンの節を手で記録してcommitします。例えば`v2.1.0`タグには`## 2.1.0`の節が必要です。
+
+バージョンタグをpushすると、GitHub ActionsがUbuntu 26.04のコンテナで全160本をビルドし、回帰チェック後に8種類のZIPをGitHub Releaseのassetsへ公開します。本文はCHANGELOGの該当節から切り出します。タグと`VERSION`が一致しない場合や、変更履歴がない場合は公開しません。
+
 ## ライセンス
 
 SIL Open Font License, Version 1.1 が適用され、個人・商用問わず利用可能です。

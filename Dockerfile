@@ -5,6 +5,7 @@ RUN ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
 RUN apt-get update && \
     apt-get install -y \
         fontforge \
+        libharfbuzz-bin \
         parallel \
         ttfautohint \
         python-is-python3 \
