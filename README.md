@@ -34,12 +34,12 @@ Moralerspace は、欧文フォント [Monaspace](https://github.com/githubnext/
   - Radon 系統には [キウイ丸 (Kiwi-Maru)](https://github.com/Kiwi-KawagotoKajiru/Kiwi-Maru) をベースに、足りないグリフを IBM Plex Sans JP で補完
   - Krypton 系統には [Stick](https://github.com/fontworks-fonts/Stick) をベースに、足りないグリフを IBM Plex Sans JP で補完
 - 罫線素片などの一部半角記号は、 [Hack](https://github.com/source-foundry/Hack) より追加合成
-- [Monaspace公式NF版](https://github.com/githubnext/monaspace/releases/tag/v1.400)のNerd Fontsグリフを標準搭載。公式の高さと配置を保ち、未収録の記号はSymbols Nerd Fontから補完
+- Nerd Fontsを標準搭載。無印は2.0と同じSymbols Nerd Fontの大きなアイコンを使用し、1セル内に収めるNFM版も用意
 - 文字幅比率が 半角3:全角5、ゆとりのある半角英数字
   - 半角1:全角2 幅のバリエーションもあり
 - バグの原因になりがちな全角スペースが可視化される
 
-合成元のバージョンはMonaspace NF v1.400、IBM Plex Sans JP 3.0.0、源ノ明朝JP 2.003、補完用のSymbols Nerd Font 3.4.0です。
+合成元のバージョンはMonaspace NF v1.400、IBM Plex Sans JP 3.0.0、源ノ明朝JP 2.003、Symbols Nerd Font 3.4.0です。
 
 ![sample](https://github.com/yuru7/moralerspace/assets/13458509/21d90d22-0178-4c41-a28c-7b15b7b17ecf)
 
@@ -53,6 +53,13 @@ Moralerspace は、欧文フォント [Monaspace](https://github.com/githubnext/
 | 半角1:全角2 幅 & 日本語文書で頻出する記号が全角          | 半角 1:2 幅版に対し、日本語文書で頻出する記号類 ( `← ↓ ↑ → □ ■ …` など) を全角幅にしたバリエーション。                         | `Moralerspace*HWJPDOC-*.ttf` |
 
 罫線は通常版/HW版では半角幅、JPDOC/HWJPDOC版では全角幅です。ターミナルのEast Asian Ambiguous文字幅設定に合わせて選択してください。JPDOC版では `↔ ⇐ ∴ ∵ ∽ ≒ ≦ ≧` も全角幅になります。
+
+各バリエーションに、無印とNFM版があります。どちらもNerd Fontsを含み、通常アイコンの送り幅は英数字1文字分です。
+
+- 無印は互換性のため、2.0の通常アイコンのサイズ・配置を維持します。輪郭は1セルより広い場合があるため、ラベルなどを続ける場合はアイコンの後ろに空白を入れてください。セルからはみ出す部分の描画は端末によって異なります。
+- NFM版は縦横比を保ち、通常アイコンを1セルの幅と行高に収めて中央寄せします。例えばファイル名は`MoralerspaceArgonHWNFM-Regular.ttf`、表示名は`Moralerspace Argon HW NFM`です。
+
+Powerlineの区切り・半円は両版で共通のセル用配置です。NFMの有無で欧文・日本語・罫線の輪郭や字幅は変わりません。
 
 ## ビルド
 
@@ -78,6 +85,8 @@ pip install -r requirements.txt
 docker build -t font/moralerspace .
 docker run -it --rm -v $PWD:/workspace font/moralerspace:latest
 ```
+
+ビルドスクリプトは無印80本とNFM版80本を生成します。FontForgeスクリプト単体でNFM版を生成する場合は`--nerd-font-mono`を指定してください。
 
 生成フォントの回帰チェックは、fontToolsとHarfBuzz CLI (`hb-shape`) がある環境で実行できます。出力先の `build_<日時>` を指定してください。
 

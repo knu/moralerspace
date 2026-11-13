@@ -302,7 +302,10 @@ def generate_krypton():
 
 
 def usage():
-    print(f"Usage: {sys.argv[0]} [--invisible-zenkaku-space] [--half-width] [--jpdoc]")
+    print(
+        f"Usage: {sys.argv[0]} [--invisible-zenkaku-space] [--half-width] "
+        "[--jpdoc] [--nerd-font-mono]"
+    )
 
 
 def get_options():
@@ -324,6 +327,8 @@ def get_options():
             options["half-width"] = True
         elif arg == "--jpdoc":
             options["jpdoc"] = True
+        elif arg == "--nerd-font-mono":
+            options["nerd-font-mono"] = True
         elif arg == "--debug":
             options["debug"] = True
         else:
@@ -391,6 +396,7 @@ def generate_font(jp_style, eng_style, merged_style, suffix, italic=False):
         INVISIBLE_ZENKAKU_SPACE_STR if options.get("invisible-zenkaku-space") else ""
     )
     variant += JPDOC_STR if options.get("jpdoc") else ""
+    variant += NERD_FONTS_STR if options.get("nerd-font-mono") else ""
 
     # macOSでのpostテーブルの使用性エラー対策
     # 重複するグリフ名を持つグリフをリネームする
@@ -924,7 +930,7 @@ def merge_hack(eng_font, eng_style):
 
 
 def add_nerd_font_glyphs(jp_font, eng_font):
-    """Monaspace NFのグリフを保ち、未収録の記号だけを補完する。"""
+    """従来の大きなアイコンを合成し、NFM版では通常アイコンをセル内に収める。"""
     half_width = eng_font[0x0030].width
     for codepoint in range(0xE0B0, 0xE0D8):
         if codepoint in eng_font and eng_font[codepoint].isWorthOutputting():
@@ -943,7 +949,9 @@ def add_nerd_font_glyphs(jp_font, eng_font):
     for nerd_glyph in nerd_font.glyphs():
         codepoint = nerd_glyph.unicode
         if codepoint < 0 or (
-            codepoint in eng_font and eng_font[codepoint].isWorthOutputting()
+            0xE0B0 <= codepoint <= 0xE0D7
+            and codepoint in eng_font
+            and eng_font[codepoint].isWorthOutputting()
         ):
             nerd_glyph.clear()
             continue
@@ -953,8 +961,15 @@ def add_nerd_font_glyphs(jp_font, eng_font):
         if nerd_glyph.glyphname in glyph_names:
             nerd_glyph.glyphname = f"{nerd_glyph.glyphname}-{nerd_glyph.encoding}"
         glyph_names.add(nerd_glyph.glyphname)
-        fit_nerd_glyph(nerd_glyph, half_width)
+        if options.get("nerd-font-mono") or 0xE0B0 <= codepoint <= 0xE0D7:
+            fit_nerd_glyph(nerd_glyph, half_width)
+        elif nerd_glyph.width < 600:
+            nerd_glyph.transform(
+                psMat.translate((half_width - nerd_glyph.width) / 2, 0)
+            )
         nerd_glyph.width = half_width
+        if codepoint in eng_font:
+            eng_font[codepoint].clear()
         if codepoint in jp_font:
             jp_font[codepoint].clear()
     temporary = Path(BUILD_FONTS_DIR) / f"tmp_nerd_{uuid.uuid4()}.ttf"
@@ -1049,9 +1064,14 @@ at: http://scripts.sil.org/OFL""",
         ("English (US)", "License URL", "http://scripts.sil.org/OFL"),
         ("English (US)", "Version", VERSION),
     )
-    font.familyname = f"{FONT_NAME} {suffix} {variant}".strip()
+    display_variant = variant
+    if options.get("nerd-font-mono"):
+        display_variant = " ".join(
+            part for part in (variant[: -len(NERD_FONTS_STR)], NERD_FONTS_STR) if part
+        )
+    font.familyname = f"{FONT_NAME} {suffix} {display_variant}".strip()
     font.fontname = f"{FONT_NAME}{suffix}{variant}-{weight}"
-    font.fullname = f"{FONT_NAME} {suffix} {variant}".strip() + f" {weight}"
+    font.fullname = f"{FONT_NAME} {suffix} {display_variant}".strip() + f" {weight}"
     font.os2_vendor = VENDER_NAME
     font.copyright = COPYRIGHT
 

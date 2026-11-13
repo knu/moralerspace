@@ -1,9 +1,10 @@
-# ini から VERSION を取得
-$ini = Get-Content .\build.ini
-$version = ($ini | Select-String -Pattern "VERSION").ToString().Split("=")[1].Trim()
-
 # スクリプトファイルがある場所に移動する
 Set-Location -Path $PSScriptRoot
+$ErrorActionPreference = "Stop"
+$settings = python -c 'import configparser, json; config = configparser.ConfigParser(); config.read("build.ini"); print(json.dumps(dict(config["DEFAULT"])))' | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0) { throw "Cannot read build.ini" }
+$version = $settings.version
+$font_name = $settings.font_name
 # 各ファイルを置くフォルダを作成
 New-Item -ItemType Directory -Force -Path ".\release_files\"
 # ビルドフォルダを削除
@@ -13,7 +14,11 @@ $option_and_output_folder = @(
     @("", "-"), # ビルド 通常版
     @("--half-width", "HW-"), # ビルド 1:2幅版
     @("--jpdoc", "JPDOC-"), # ビルド JPDOC版
-    @("--half-width --jpdoc", "HWJPDOC-") # ビルド 1:2幅 JPDOC版
+    @("--half-width --jpdoc", "HWJPDOC-"), # ビルド 1:2幅 JPDOC版
+    @("--nerd-font-mono", "NFM-"),
+    @("--half-width --nerd-font-mono", "HWNFM-"),
+    @("--jpdoc --nerd-font-mono", "JPDOCNFM-"),
+    @("--half-width --jpdoc --nerd-font-mono", "HWJPDOCNFM-")
 )
 
 $option_and_output_folder | Foreach-Object -ThrottleLimit 4 -Parallel {
@@ -23,37 +28,16 @@ $option_and_output_folder | Foreach-Object -ThrottleLimit 4 -Parallel {
         && python fonttools_script.py $_[1]
 }
 
-$move_file_src_dest = @(
-    @("MoralerspaceNeon-*.ttf", "Moralerspace_$version"),
-    @("MoralerspaceArgon-*.ttf", "Moralerspace_$version"),
-    @("MoralerspaceXenon-*.ttf", "Moralerspace_$version"),
-    @("MoralerspaceRadon-*.ttf", "Moralerspace_$version"),
-    @("MoralerspaceKrypton-*.ttf", "Moralerspace_$version"),
-
-    @("MoralerspaceNeonHW-*.ttf", "MoralerspaceHW_$version"),
-    @("MoralerspaceArgonHW-*.ttf", "MoralerspaceHW_$version"),
-    @("MoralerspaceXenonHW-*.ttf", "MoralerspaceHW_$version"),
-    @("MoralerspaceRadonHW-*.ttf", "MoralerspaceHW_$version"),
-    @("MoralerspaceKryptonHW-*.ttf", "MoralerspaceHW_$version"),
-
-    @("MoralerspaceNeonJPDOC-*.ttf", "MoralerspaceJPDOC_$version"),
-    @("MoralerspaceArgonJPDOC-*.ttf", "MoralerspaceJPDOC_$version"),
-    @("MoralerspaceXenonJPDOC-*.ttf", "MoralerspaceJPDOC_$version"),
-    @("MoralerspaceRadonJPDOC-*.ttf", "MoralerspaceJPDOC_$version"),
-    @("MoralerspaceKryptonJPDOC-*.ttf", "MoralerspaceJPDOC_$version"),
-
-    @("MoralerspaceNeonHWJPDOC-*.ttf", "MoralerspaceHWJPDOC_$version"),
-    @("MoralerspaceArgonHWJPDOC-*.ttf", "MoralerspaceHWJPDOC_$version"),
-    @("MoralerspaceXenonHWJPDOC-*.ttf", "MoralerspaceHWJPDOC_$version"),
-    @("MoralerspaceRadonHWJPDOC-*.ttf", "MoralerspaceHWJPDOC_$version"),
-    @("MoralerspaceKryptonHWJPDOC-*.ttf", "MoralerspaceHWJPDOC_$version")
-)
-
 $timestamp = Get-Date -Format "yyyyMMddHHmmss"
 $move_dir = ".\release_files\build_$timestamp"
 
-$move_file_src_dest | Foreach-Object {
-    $folder_path = "$move_dir\$($_[1])"
+$variants = @("", "HW", "JPDOC", "HWJPDOC", "NFM", "HWNFM", "JPDOCNFM", "HWJPDOCNFM")
+foreach ($variant in $variants) {
+    $folder_path = "$move_dir\${font_name}${variant}_$version"
     New-Item -ItemType Directory -Force -Path $folder_path
-    Move-Item -Path ".\build\$($_[0])" -Destination $folder_path -Force
+    foreach ($family in @("Neon", "Argon", "Xenon", "Radon", "Krypton")) {
+        foreach ($style in @("Regular", "Bold", "Italic", "BoldItalic")) {
+            Move-Item -Path ".\build\${font_name}${family}${variant}-${style}.ttf" -Destination $folder_path
+        }
+    }
 }

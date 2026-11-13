@@ -8,6 +8,8 @@ cd "$(dirname "$0")"
 # ini から VERSION を取得
 version=$(python3 -c 'import configparser; config = configparser.ConfigParser(); config.read("build.ini"); print(config["DEFAULT"]["VERSION"])')
 
+font_name=$(python3 -c 'import configparser; config = configparser.ConfigParser(); config.read("build.ini"); print(config["DEFAULT"]["FONT_NAME"])')
+
 # 各ファイルを置くフォルダを作成
 mkdir -p "./release_files/"
 
@@ -20,12 +22,20 @@ option=(
   "--half-width"
   "--jpdoc"
   "--half-width --jpdoc"
+  "--nerd-font-mono"
+  "--half-width --nerd-font-mono"
+  "--jpdoc --nerd-font-mono"
+  "--half-width --jpdoc --nerd-font-mono"
 )
 output_folder=(
   "-"
   "HW-"
   "JPDOC-"
   "HWJPDOC-"
+  "NFM-"
+  "HWNFM-"
+  "JPDOCNFM-"
+  "HWJPDOCNFM-"
 )
 
 # 配列を並列処理しやすい形式に変換
@@ -43,42 +53,20 @@ function run_build() {
 export -f run_build
 
 # parallelコマンドで並列実行
-parallel -j -1 --halt soon,fail=1 --link run_build ::: "${option[@]}" ::: "${output_folder[@]}"
+parallel -j 4 --halt soon,fail=1 --link run_build ::: "${option[@]}" ::: "${output_folder[@]}"
 
 # ファイル移動
-declare -A move_file_src_dest=(
-  ["MoralerspaceNeon-*.ttf"]="Moralerspace_$version"
-  ["MoralerspaceArgon-*.ttf"]="Moralerspace_$version"
-  ["MoralerspaceXenon-*.ttf"]="Moralerspace_$version"
-  ["MoralerspaceRadon-*.ttf"]="Moralerspace_$version"
-  ["MoralerspaceKrypton-*.ttf"]="Moralerspace_$version"
-
-  ["MoralerspaceNeonHW-*.ttf"]="MoralerspaceHW_$version"
-  ["MoralerspaceArgonHW-*.ttf"]="MoralerspaceHW_$version"
-  ["MoralerspaceXenonHW-*.ttf"]="MoralerspaceHW_$version"
-  ["MoralerspaceRadonHW-*.ttf"]="MoralerspaceHW_$version"
-  ["MoralerspaceKryptonHW-*.ttf"]="MoralerspaceHW_$version"
-
-  ["MoralerspaceNeonJPDOC-*.ttf"]="MoralerspaceJPDOC_$version"
-  ["MoralerspaceArgonJPDOC-*.ttf"]="MoralerspaceJPDOC_$version"
-  ["MoralerspaceXenonJPDOC-*.ttf"]="MoralerspaceJPDOC_$version"
-  ["MoralerspaceRadonJPDOC-*.ttf"]="MoralerspaceJPDOC_$version"
-  ["MoralerspaceKryptonJPDOC-*.ttf"]="MoralerspaceJPDOC_$version"
-
-  ["MoralerspaceNeonHWJPDOC-*.ttf"]="MoralerspaceHWJPDOC_$version"
-  ["MoralerspaceArgonHWJPDOC-*.ttf"]="MoralerspaceHWJPDOC_$version"
-  ["MoralerspaceXenonHWJPDOC-*.ttf"]="MoralerspaceHWJPDOC_$version"
-  ["MoralerspaceRadonHWJPDOC-*.ttf"]="MoralerspaceHWJPDOC_$version"
-  ["MoralerspaceKryptonHWJPDOC-*.ttf"]="MoralerspaceHWJPDOC_$version"
-)
-
 timestamp=$(date +%Y%m%d%H%M%S)
 move_dir="./release_files/build_$timestamp"
 
-for ttf in "${!move_file_src_dest[@]}"; do
-  folder_path="$move_dir/${move_file_src_dest[$ttf]}"
+for variant in "" HW JPDOC HWJPDOC NFM HWNFM JPDOCNFM HWJPDOCNFM; do
+  folder_path="$move_dir/${font_name}${variant}_$version"
   mkdir -p "$folder_path"
-  find "./build/" -name "$ttf" -exec mv -t "$folder_path" {} \;
+  for family in Neon Argon Xenon Radon Krypton; do
+    for style in Regular Bold Italic BoldItalic; do
+      mv "./build/${font_name}${family}${variant}-${style}.ttf" "$folder_path/"
+    done
+  done
 done
 
 echo "Finish build."
