@@ -129,6 +129,15 @@ docker run --rm -v "$PWD:/workspace" font/moralerspace:latest
 python3 tests/test_generated_fonts.py release_files/build_YYYYMMDDhhmmss
 ```
 
+PRではPythonの単体テスト・lint・構文・設定チェックを実行します。フォントの版や合成処理に関係する変更では、Argon Regularの通常/HW×無印/NFMとXenon Regular、Radon Bold、Krypton Boldの計7本をビルドし、同じ回帰チェックを実行します。全160本のビルドはリリースタグ時と、Fontsワークフローを手動実行して`full`を選んだ場合に実行します。合成元とDockerビルドのキャッシュはCIで再利用します。
+
+代表ビルドをローカルで実行する場合は、ビルド環境内で次を実行してください。出力先の`build/smoke`は空の状態で開始します。
+
+```sh
+python3 scripts/build_smoke_fonts.py
+python3 tests/test_generated_fonts.py build/smoke --smoke
+```
+
 ### README画像の再生成
 
 画像は[scripts/generate_readme_images.py](scripts/generate_readme_images.py)で生成します。Python 3.11以上と、RAQMに対応したPillowが必要です。仮想環境に画像生成用の依存パッケージを入れ、ビルド済みフォントの出力先を指定してください。リリースの通常版とNFM版のZIPを、同じディレクトリ配下に展開したものも使用できます。

@@ -2,11 +2,11 @@
 
 # 2つのフォントを合成する
 
+import argparse
 import configparser
 import math
 import os
 import shutil
-import sys
 import uuid
 from decimal import ROUND_HALF_UP, Decimal
 from functools import lru_cache
@@ -40,7 +40,9 @@ JP_FONT_KRYPTON = settings.get("DEFAULT", "JP_FONT_KRYPTON")
 ENG_FONT = settings.get("DEFAULT", "ENG_FONT")
 HACK_FONT = settings.get("DEFAULT", "HACK_FONT")
 SOURCE_FONTS_DIR = settings.get("DEFAULT", "SOURCE_FONTS_DIR")
-BUILD_FONTS_DIR = settings.get("DEFAULT", "BUILD_FONTS_DIR")
+BUILD_FONTS_DIR = os.environ.get(
+    "MORALERSPACE_BUILD_DIR", settings.get("DEFAULT", "BUILD_FONTS_DIR")
+)
 VENDER_NAME = settings.get("DEFAULT", "VENDER_NAME")
 FONTFORGE_PREFIX = settings.get("DEFAULT", "FONTFORGE_PREFIX")
 IDEOGRAPHIC_SPACE = settings.get("DEFAULT", "IDEOGRAPHIC_SPACE")
@@ -88,10 +90,6 @@ def main():
 
     # オプション判定
     get_options()
-    if options.get("unknown-option"):
-        usage()
-        return
-
     SOURCE_FONTS_DIR = str(prepare_fonts())
 
     # buildディレクトリを作成する
@@ -307,42 +305,35 @@ def generate_krypton():
     )
 
 
-def usage():
-    print(
-        f"Usage: {sys.argv[0]} [--invisible-zenkaku-space] [--half-width] "
-        "[--jpdoc] [--nerd-font-mono]"
+def get_options():
+    """オプションを取得する"""
+    parser = argparse.ArgumentParser(description="Build Moralerspace source fonts")
+    for flag in (
+        "do-not-delete-build-dir",
+        "invisible-zenkaku-space",
+        "half-width",
+        "jpdoc",
+        "nerd-font-mono",
+        "debug",
+    ):
+        parser.add_argument(f"--{flag}", action="store_true")
+    parser.add_argument(
+        "--family",
+        choices=(SUFFIX_NEON, SUFFIX_ARGON, SUFFIX_XENON, SUFFIX_RADON, SUFFIX_KRYPTON),
+    )
+    parser.add_argument("--style", choices=("Regular", "Bold", "Italic", "BoldItalic"))
+    options.update(
+        (name.replace("_", "-"), value)
+        for name, value in vars(parser.parse_args()).items()
     )
 
 
-def get_options():
-    """オプションを取得する"""
-
-    global options
-
-    # オプションなしの場合は何もしない
-    if len(sys.argv) == 1:
-        return
-
-    for arg in sys.argv[1:]:
-        # オプション判定
-        if arg == "--do-not-delete-build-dir":
-            options["do-not-delete-build-dir"] = True
-        elif arg == "--invisible-zenkaku-space":
-            options["invisible-zenkaku-space"] = True
-        elif arg == "--half-width":
-            options["half-width"] = True
-        elif arg == "--jpdoc":
-            options["jpdoc"] = True
-        elif arg == "--nerd-font-mono":
-            options["nerd-font-mono"] = True
-        elif arg == "--debug":
-            options["debug"] = True
-        else:
-            options["unknown-option"] = True
-            return
-
-
 def generate_font(jp_style, eng_style, merged_style, suffix, italic=False):
+    if options.get("family") not in (None, suffix) or options.get("style") not in (
+        None,
+        merged_style,
+    ):
+        return
     print(f"=== Generate {suffix} {merged_style} ===")
 
     # 合成するフォントを開く

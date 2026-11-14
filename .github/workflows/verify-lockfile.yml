@@ -24,14 +24,36 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements*.txt
       - name: Verify workflow dependencies
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh extension install github/gh-actions-lock --pin v0.4.1
           gh actions-lock --verify
-      - name: Check release tooling
+      - name: Check Python tooling
         run: |
-          python3 -m venv "$RUNNER_TEMP/release-venv"
-          "$RUNNER_TEMP/release-venv/bin/pip" install -r requirements-ci.txt
-          "$RUNNER_TEMP/release-venv/bin/python3" -m unittest discover -s tests -p test_prepare_release.py
+          python3 -m venv "$RUNNER_TEMP/check-venv"
+          "$RUNNER_TEMP/check-venv/bin/pip" install -r requirements-dev.txt
+          "$RUNNER_TEMP/check-venv/bin/ruff" check .
+          "$RUNNER_TEMP/check-venv/bin/ruff" format --check .
+          "$RUNNER_TEMP/check-venv/bin/python3" -m unittest discover -s tests -p test_prepare_release.py
+          "$RUNNER_TEMP/check-venv/bin/python3" -m unittest discover -s tests -p test_font_sources.py
+      - name: Validate Renovate configuration
+        run: |
+          "$RUNNER_TEMP/check-venv/bin/check-jsonschema" --schemafile https://docs.renovatebot.com/renovate-schema.json .github/renovate.json5
+      - name: Check shell scripts
+        run: |
+          bash -n make.sh
+          shellcheck make.sh
+      - name: Check PowerShell syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("$PWD/make.ps1", [ref]$tokens, [ref]$parseErrors) | Out-Null
+          if ($parseErrors.Count) { $parseErrors | ForEach-Object { Write-Error $_ }; exit 1 }

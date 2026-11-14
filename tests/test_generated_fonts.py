@@ -19,6 +19,7 @@ from font_sources import prepared_directory
 
 class GeneratedFontsTest(unittest.TestCase):
     directory = Path("build")
+    smoke = False
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -89,6 +90,16 @@ class GeneratedFontsTest(unittest.TestCase):
             for nerd in ("", "NFM")
             for style in ("Regular", "Bold", "Italic", "BoldItalic")
         }
+        if self.smoke:
+            expected = {
+                "MoralerspaceArgon-Regular.ttf",
+                "MoralerspaceArgonHW-Regular.ttf",
+                "MoralerspaceArgonNFM-Regular.ttf",
+                "MoralerspaceArgonHWNFM-Regular.ttf",
+                "MoralerspaceXenon-Regular.ttf",
+                "MoralerspaceRadon-Bold.ttf",
+                "MoralerspaceKrypton-Bold.ttf",
+            }
         self.assertCountEqual([path.name for path in self.paths], expected)
 
     def test_source_versions(self) -> None:
@@ -334,6 +345,9 @@ class GeneratedFontsTest(unittest.TestCase):
 if __name__ == "__main__":
     if shutil.which("hb-shape") is None:
         sys.exit("hb-shape is required (HarfBuzz CLI)")
+    if "--smoke" in sys.argv:
+        GeneratedFontsTest.smoke = True
+        sys.argv.remove("--smoke")
     if len(sys.argv) > 1:
         GeneratedFontsTest.directory = Path(sys.argv.pop(1))
     unittest.main()

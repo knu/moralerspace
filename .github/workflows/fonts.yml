@@ -1,0 +1,90 @@
+name: Fonts
+
+on:
+  pull_request:
+    paths:
+      - "*.py"
+      - "build.ini"
+      - "Dockerfile"
+      - ".dockerignore"
+      - "requirements.txt"
+      - "make.sh"
+      - "make.ps1"
+      - "source_fonts/**"
+      - "scripts/build_smoke_fonts.py"
+      - "tests/test_generated_fonts.py"
+      - ".github/workflows/fonts.yml"
+      - ".github/workflows/actions.lock"
+  push:
+    branches: [main]
+    paths:
+      - "*.py"
+      - "build.ini"
+      - "Dockerfile"
+      - ".dockerignore"
+      - "requirements.txt"
+      - "make.sh"
+      - "make.ps1"
+      - "source_fonts/**"
+      - "scripts/build_smoke_fonts.py"
+      - "tests/test_generated_fonts.py"
+      - ".github/workflows/fonts.yml"
+      - ".github/workflows/actions.lock"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Build coverage
+        type: choice
+        options: [smoke, full]
+        default: smoke
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fonts-${{ github.event.pull_request.number || github.ref }}-${{ inputs.mode || 'smoke' }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.mode == 'full' && 60 || 20 }}
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2.22.4
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Cache source fonts
+        uses: actions/cache@v6.1.0
+        with:
+          path: build_sources
+          key: ${{ runner.os }}-source-fonts-${{ hashFiles('Dockerfile', 'requirements.txt', 'font_sources.py', 'make_bold.py', 'source_fonts/versions.ini', 'source_fonts/ideographic_space.sfd') }}
+      - uses: docker/setup-buildx-action@v4.4.1
+      - name: Prepare build image
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          push: false
+          load: true
+          tags: moralerspace-ci:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build and check fonts
+        env:
+          BUILD_MODE: ${{ inputs.mode || 'smoke' }}
+        run: |
+          if [[ "$BUILD_MODE" == full ]]; then
+            docker run --rm -v "$PWD:/workspace" moralerspace-ci
+            builds=(release_files/build_*)
+            test "${#builds[@]}" -eq 1
+            directory="${builds[0]}"
+            test_options=()
+          else
+            docker run --rm -v "$PWD:/workspace" moralerspace-ci python3 scripts/build_smoke_fonts.py
+            directory=build/smoke
+            test_options=(--smoke)
+          fi
+          docker run --rm -v "$PWD:/workspace" moralerspace-ci python3 tests/test_generated_fonts.py "$directory" "${test_options[@]}"

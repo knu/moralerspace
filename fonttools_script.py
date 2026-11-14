@@ -1,9 +1,9 @@
 #!/bin/env python3
 
+import argparse
 import configparser
 import glob
 import os
-import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -22,22 +22,23 @@ SUFFIX_RADON = settings.get("DEFAULT", "SUFFIX_RADON")
 SUFFIX_KRYPTON = settings.get("DEFAULT", "SUFFIX_KRYPTON")
 FONTFORGE_PREFIX = settings.get("DEFAULT", "FONTFORGE_PREFIX")
 FONTTOOLS_PREFIX = settings.get("DEFAULT", "FONTTOOLS_PREFIX")
-BUILD_FONTS_DIR = settings.get("DEFAULT", "BUILD_FONTS_DIR")
+BUILD_FONTS_DIR = os.environ.get(
+    "MORALERSPACE_BUILD_DIR", settings.get("DEFAULT", "BUILD_FONTS_DIR")
+)
 HALF_WIDTH_STR = settings.get("DEFAULT", "HALF_WIDTH_STR")
 HALF_WIDTH_12 = int(settings.get("DEFAULT", "HALF_WIDTH_12"))
 FULL_WIDTH_35 = int(settings.get("DEFAULT", "FULL_WIDTH_35"))
 
 
 def main():
-    # 第一引数を取得
-    # 特定のバリエーションのみを処理するための指定
-    specific_variant = sys.argv[1] if len(sys.argv) > 1 else None
-
-    edit_fonts(SUFFIX_NEON, specific_variant)
-    edit_fonts(SUFFIX_ARGON, specific_variant)
-    edit_fonts(SUFFIX_XENON, specific_variant)
-    edit_fonts(SUFFIX_RADON, specific_variant)
-    edit_fonts(SUFFIX_KRYPTON, specific_variant)
+    parser = argparse.ArgumentParser(description="Finish Moralerspace fonts")
+    families = (SUFFIX_NEON, SUFFIX_ARGON, SUFFIX_XENON, SUFFIX_RADON, SUFFIX_KRYPTON)
+    parser.add_argument("variant", nargs="?")
+    parser.add_argument("--family", choices=families)
+    args = parser.parse_args()
+    for family in families:
+        if args.family in (None, family):
+            edit_fonts(family, args.variant)
 
 
 def edit_fonts(suffix: str, specific_variant: str):
