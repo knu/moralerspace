@@ -6,6 +6,7 @@ import configparser
 import hashlib
 import re
 import shutil
+import stat
 import sys
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
@@ -127,11 +128,19 @@ def source_urls(versions: configparser.ConfigParser) -> dict[str, str]:
     return sources
 
 
+def make_cache_readable(path: Path) -> None:
+    """Let the host CI user archive public files downloaded inside Docker."""
+    mode = stat.S_IMODE(path.stat().st_mode)
+    if mode & 0o044 != 0o044:
+        path.chmod(mode | 0o044)
+
+
 def download(url: str) -> Path:
     directory = CACHE / "downloads"
     directory.mkdir(parents=True, exist_ok=True)
     destination = directory / hashlib.sha256(url.encode()).hexdigest()
     if destination.is_file():
+        make_cache_readable(destination)
         return destination
     print(f"Downloading {url}", file=sys.stderr)
     request = Request(url, headers={"User-Agent": "Moralerspace font builder"})
@@ -144,6 +153,7 @@ def download(url: str) -> Path:
                 if length is not None and file.tell() != int(length):
                     raise ValueError(f"incomplete download: {url}")
             file.close()
+            make_cache_readable(temporary)
             temporary.replace(destination)
         except OSError as error:
             raise OSError(f"{url}: {error}") from error

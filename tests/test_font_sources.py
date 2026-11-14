@@ -79,11 +79,14 @@ class FontSourcesTest(unittest.TestCase):
             ):
                 path = font_sources.download("https://example.com/font")
                 self.assertEqual(path.read_bytes(), b"font")
+                self.assertEqual(path.stat().st_mode & 0o044, 0o044)
+            path.chmod(0o600)
             with patch.object(font_sources, "urlopen") as request:
                 self.assertEqual(
                     font_sources.download("https://example.com/font"), path
                 )
                 request.assert_not_called()
+                self.assertEqual(path.stat().st_mode & 0o044, 0o044)
             with (
                 patch.object(font_sources, "urlopen", return_value=response(b"bad", 4)),
                 self.assertRaisesRegex(ValueError, "incomplete download"),
