@@ -64,7 +64,7 @@ brew install --cask knu/knu/font-moralerspace-ce-hw
   - 半角1:全角2 幅のバリエーションもあり
 - バグの原因になりがちな全角スペースが可視化される
 
-合成元のバージョンはMonaspace NF v1.400、IBM Plex Sans JP 3.0.0、源ノ明朝JP 2.003、Symbols Nerd Font 3.4.0です。
+合成元のバージョンはMonaspace NF v1.400、IBM Plex Sans JP 3.0.0、源ノ明朝JP 2.003、Symbols Nerd Font 3.5.1です。
 
 ![v3.0.0のNeon、Argon、Xenon、Radon、Kryptonの欧文・日本語サンプル](https://github.com/user-attachments/assets/2764e589-7de3-4e90-b0d0-d7dd38467d66)
 
