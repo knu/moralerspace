@@ -41,7 +41,7 @@ brew install --cask knu/knu/font-moralerspace-ce-hw
 
 ### ZIPからインストール
 
-[リリースページ](https://github.com/knu/moralerspace/releases/latest)のAssetsから、使用するバリエーションのZIPをダウンロードしてください。展開したTTFファイルを各OSの方法でインストールします。例えばHW版は`MoralerspaceHW_v3.0.0.zip`、HW NFM版は`MoralerspaceHWNFM_v3.0.0.zip`です。
+[リリースページ](https://github.com/knu/moralerspace/releases/latest)のAssetsから、使用するバリエーションのZIPをダウンロードしてください。展開したTTFファイルを各OSの方法でインストールします。例えばHW版は`MoralerspaceHW_v3.1.0.zip`、HW NFM版は`MoralerspaceHWNFM_v3.1.0.zip`です。
 
 > 💡 その他、公開中のプログラミングフォント
 >
