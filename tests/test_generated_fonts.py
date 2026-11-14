@@ -13,6 +13,9 @@ from fontTools.pens.boundsPen import BoundsPen
 from fontTools.pens.recordingPen import DecomposingRecordingPen
 from fontTools.ttLib import TTFont
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from font_sources import prepared_directory
+
 
 class GeneratedFontsTest(unittest.TestCase):
     directory = Path("build")
@@ -24,6 +27,7 @@ class GeneratedFontsTest(unittest.TestCase):
             raise RuntimeError(f"no generated fonts in {cls.directory}")
         cls.settings = configparser.ConfigParser()
         cls.settings.read("build.ini", encoding="utf-8")
+        cls.sources = prepared_directory()
 
     @staticmethod
     def bounds(font: TTFont, name: str) -> tuple:
@@ -51,7 +55,7 @@ class GeneratedFontsTest(unittest.TestCase):
     @classmethod
     @lru_cache(maxsize=20)
     def native_powerline_metrics(cls, family: str, style: str) -> dict:
-        source = Path(f"source_fonts/monaspace/Monaspace{family}-{style}.otf")
+        source = cls.sources / f"monaspace/Monaspace{family}-{style}.otf"
         with TTFont(source) as font:
             cmap = font.getBestCmap()
             return {
@@ -66,7 +70,7 @@ class GeneratedFontsTest(unittest.TestCase):
     @classmethod
     @lru_cache(maxsize=1)
     def symbols_metrics(cls) -> dict:
-        with TTFont("source_fonts/nerd-fonts/SymbolsNerdFont-Regular.ttf") as font:
+        with TTFont(cls.sources / "nerd-fonts/SymbolsNerdFont-Regular.ttf") as font:
             cmap = font.getBestCmap()
             return {
                 codepoint: (
@@ -86,6 +90,12 @@ class GeneratedFontsTest(unittest.TestCase):
             for style in ("Regular", "Bold", "Italic", "BoldItalic")
         }
         self.assertCountEqual([path.name for path in self.paths], expected)
+
+    def test_source_versions(self) -> None:
+        self.assertEqual(
+            (self.directory / "source-versions.ini").read_bytes(),
+            (self.sources / "versions.ini").read_bytes(),
+        )
 
     def test_metrics_and_coverage(self) -> None:
         for path in self.paths:
@@ -170,7 +180,7 @@ class GeneratedFontsTest(unittest.TestCase):
                         self.assertAlmostEqual(actual, target, delta=3)
 
     def test_nerd_coverage(self) -> None:
-        with TTFont("source_fonts/nerd-fonts/SymbolsNerdFont-Regular.ttf") as source:
+        with TTFont(self.sources / "nerd-fonts/SymbolsNerdFont-Regular.ttf") as source:
             symbols = set(source.getBestCmap())
         for path in self.paths:
             with self.subTest(font=path.name), TTFont(path) as font:
@@ -205,7 +215,7 @@ class GeneratedFontsTest(unittest.TestCase):
                     self.assertEqual(outlines[0], outlines[1], char)
 
     def test_nfm_all_icons_fit(self) -> None:
-        with TTFont("source_fonts/nerd-fonts/SymbolsNerdFont-Regular.ttf") as source:
+        with TTFont(self.sources / "nerd-fonts/SymbolsNerdFont-Regular.ttf") as source:
             symbols = set(source.getBestCmap())
         for variant in ("NFM", "HWNFM"):
             path = next(
@@ -263,7 +273,7 @@ class GeneratedFontsTest(unittest.TestCase):
 
     def test_xenon_japanese_coverage(self) -> None:
         for style in ("Regular", "Bold"):
-            source = Path(f"source_fonts/source-han-serif/SourceHanSerifJP-{style}.otf")
+            source = self.sources / f"source-han-serif/SourceHanSerifJP-{style}.otf"
             with TTFont(source) as font:
                 japanese = {
                     codepoint

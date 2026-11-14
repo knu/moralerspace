@@ -99,6 +99,10 @@ Powerlineの区切り・半円は両版で共通のセル用配置です。NFM�
 
 Dockerのビルド環境はUbuntu 26.04、FontForge 20230101、Python 3.14です。
 
+合成元の取得バージョンは[source_fonts/versions.ini](source_fonts/versions.ini)で固定しています。ビルド時に`font_sources.py`が指定タグ/コミットの公式フォントとライセンスを取得し、Kiwi Maru/Stickの太字とKiwi Maruのヒント除去版を生成します。取得物と生成済みの合成元は`build_sources/`にキャッシュされ、同じ入力のビルドでは再利用されます。初回はネットワーク接続が必要です。
+
+Renovateはこのファイルの更新PRを作成します。PRのバージョン変更は次のビルドに反映されるため、ビルド・回帰チェック・描画確認と、上記の合成元バージョン表記の更新を済ませてからマージしてください。Gitに含まれる従来の合成元TTF/OTFはビルドに使用しません。
+
 ### Windows (PowerShell 7以降)
 
 ```powershell

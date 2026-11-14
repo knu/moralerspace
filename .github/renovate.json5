@@ -1,0 +1,53 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: ["config:recommended"],
+  // Dependabot owns GitHub Actions updates.
+  enabledManagers: ["custom.regex"],
+  labels: ["dependencies"],
+  timezone: "Asia/Tokyo",
+  schedule: ["after 9am and before 6pm on friday"],
+  minimumReleaseAge: "7 days",
+  automerge: false,
+  customManagers: [
+    {
+      customType: "regex",
+      managerFilePatterns: ["/^source_fonts/versions\\.ini$/"],
+      matchStrings: [
+        "; renovate: depName=(?<depName>[^\\s]+)\\n[^\\s=]+ = (?<currentValue>[^\\s]+)\\n",
+      ],
+      datasourceTemplate: "github-releases",
+      versioningTemplate: "loose",
+    },
+    {
+      customType: "regex",
+      managerFilePatterns: ["/^source_fonts/versions\\.ini$/"],
+      matchStrings: [
+        "; renovate: depName=(?<depName>[^\\s]+) branch=(?<currentValue>[^\\s]+)\\n[^\\s=]+ = (?<currentDigest>[a-f0-9]{40})\\n",
+      ],
+      datasourceTemplate: "git-refs",
+      packageNameTemplate: "https://github.com/{{{depName}}}",
+    },
+  ],
+  packageRules: [
+    {
+      matchManagers: ["custom.regex"],
+      matchFileNames: ["source_fonts/versions.ini"],
+      minimumReleaseAge: "0 days",
+    },
+    {
+      matchPackageNames: ["IBM/plex"],
+      extractVersion: "^@ibm/plex-sans-jp@(?<version>\\d+\\.\\d+\\.\\d+)$",
+    },
+    {
+      matchPackageNames: ["adobe-fonts/source-han-serif"],
+      extractVersion: "^(?<version>\\d+\\.\\d+)R$",
+    },
+    {
+      matchUpdateTypes: ["major"],
+      addLabels: ["dependencies:major"],
+    },
+  ],
+  prBodyNotes: [
+    "The build downloads the source fonts pinned by this PR and regenerates derived fonts. Run the font build and regression checks, inspect the rendered glyphs, and update README versions before merging.",
+  ],
+}

@@ -5,6 +5,9 @@ set -euo pipefail
 # スクリプトファイルがある場所に移動する
 cd "$(dirname "$0")"
 
+# 並列ビルドの前に、固定したバージョンの合成元を取得する
+python3 font_sources.py
+
 # ini から VERSION を取得
 version=$(python3 -c 'import configparser; config = configparser.ConfigParser(); config.read("build.ini"); print(config["DEFAULT"]["VERSION"])')
 
@@ -68,5 +71,7 @@ for variant in "" HW JPDOC HWJPDOC NFM HWNFM JPDOCNFM HWJPDOCNFM; do
     done
   done
 done
+
+cp source_fonts/versions.ini "$move_dir/source-versions.ini"
 
 echo "Finish build."

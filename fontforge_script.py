@@ -20,6 +20,8 @@ from fontTools.pens.cu2quPen import Cu2QuPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont
 
+from font_sources import prepare_fonts
+
 # iniファイルを読み込む
 settings = configparser.ConfigParser()
 settings.read("build.ini", encoding="utf-8")
@@ -82,11 +84,15 @@ options = {}
 
 
 def main():
+    global SOURCE_FONTS_DIR
+
     # オプション判定
     get_options()
     if options.get("unknown-option"):
         usage()
         return
+
+    SOURCE_FONTS_DIR = str(prepare_fonts())
 
     # buildディレクトリを作成する
     if os.path.exists(BUILD_FONTS_DIR) and not options.get("do-not-delete-build-dir"):

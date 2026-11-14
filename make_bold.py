@@ -1,37 +1,44 @@
-import configparser
+"""Generate the bold and dehinted Japanese source fonts."""
+
+import argparse
+from pathlib import Path
 
 import fontforge
-
-settings = configparser.ConfigParser()
-settings.read("build.ini", encoding="utf-8")
-SOURCE_FONTS_DIR = settings.get("DEFAULT", "SOURCE_FONTS_DIR")
+from ttfautohint import ttfautohint
 
 
-def main():
-    radon_jp_font = fontforge.open(f"{SOURCE_FONTS_DIR}/KiwiMaru-Medium.ttf")
-    krypton_jp_font = fontforge.open(f"{SOURCE_FONTS_DIR}/Stick-Regular.ttf")
+def prepare_derived_fonts(directory: Path) -> None:
+    for subdirectory, family, style, width in (
+        ("kiwimaru", "KiwiMaru", "Medium", 35),
+        ("stick", "Stick", "Regular", 38),
+    ):
+        path = directory / subdirectory
+        font = fontforge.open(str(path / f"{family}-{style}.ttf"))
+        try:
+            for glyph in font.glyphs():
+                if glyph.isWorthOutputting():
+                    glyph.stroke(
+                        "circular", width, removeinternal=True, removeoverlap="none"
+                    )
+                    glyph.removeOverlap()
+            font.generate(str(path / f"{family}-Bold.ttf"))
+        finally:
+            font.close()
+    for style in ("Medium", "Bold"):
+        path = directory / "kiwimaru"
+        ttfautohint(
+            in_file=str(path / f"KiwiMaru-{style}.ttf"),
+            out_file=str(path / f"KiwiMaru-{style}_dehint.ttf"),
+            dehint=True,
+            no_info=True,
+        )
 
-    print("***** Radon用の太字フォントを作成します *****")
 
-    for i, glyph in enumerate(radon_jp_font.glyphs()):
-        if i % 100 == 0:
-            print(f"{i}文字目を処理中")
-        if glyph.isWorthOutputting():
-            glyph.stroke("circular", 35, removeinternal=True, removeoverlap="none")
-            glyph.removeOverlap()
-
-    print("***** Krypton用の太字フォントを作成します *****")
-
-    for i, glyph in enumerate(krypton_jp_font.glyphs()):
-        if i % 100 == 0:
-            print(f"{i}文字目を処理中")
-        if glyph.isWorthOutputting():
-            glyph.stroke("circular", 38, removeinternal=True, removeoverlap="none")
-            glyph.removeOverlap()
-
-    # ttfファイルを保存
-    radon_jp_font.generate(f"{SOURCE_FONTS_DIR}/KiwiMaru-Bold.ttf")
-    krypton_jp_font.generate(f"{SOURCE_FONTS_DIR}/Stick-Bold.ttf")
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("directory", type=Path)
+    args = parser.parse_args()
+    prepare_derived_fonts(args.directory)
 
 
 if __name__ == "__main__":

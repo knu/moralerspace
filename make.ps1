@@ -1,6 +1,8 @@
 # スクリプトファイルがある場所に移動する
 Set-Location -Path $PSScriptRoot
 $ErrorActionPreference = "Stop"
+& "C:\Program Files (x86)\FontForgeBuilds\bin\ffpython.exe" .\font_sources.py
+if ($LASTEXITCODE -ne 0) { throw "Cannot prepare source fonts" }
 $settings = python -c 'import configparser, json; config = configparser.ConfigParser(); config.read("build.ini"); print(json.dumps(dict(config["DEFAULT"])))' | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0) { throw "Cannot read build.ini" }
 $version = $settings.version
@@ -41,3 +43,5 @@ foreach ($variant in $variants) {
         }
     }
 }
+
+Copy-Item -Path .\source_fonts\versions.ini -Destination "$move_dir\source-versions.ini"
